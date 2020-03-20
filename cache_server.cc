@@ -9,46 +9,54 @@ namespace po = boost::program_options;
 #include <string>
 
 
+
+
 int main(int ac, char* av[])
 {
     try {
 
+        /*
         po::options_description desc("Allowed options");
         desc.add_options()
             ("help", "produce help message")
         ;
+        */
 
         // Declare a group of options that will be 
 		// allowed both on command line and in
 		// config file
+		int maxmem;
+		std::string server;
+		int port;
+		int thread_count;
 		po::options_description config("Configuration");
 		config.add_options()
-		    ("maxmem,m", po::value<int>(&opt)->default_value(1024), 
+		    ("maxmem,m", po::value<int>(&maxmem)->default_value(1024), 
 		          "maximum memory allowed in cache")
-		    ("server,s", po::value<std::string>(&opt)->default_value("127.0.0.1"), 
+		    ("server,s", po::value<std::string>(&server)->default_value("127.0.0.1"), 
 		          "the ip to run the server on")
-		    ("port,p", po::value<int>(&opt)->default_value(6300), 
+		    ("port,p", po::value<int>(&port)->default_value(6300), 
 		          "the port to run the server on")
-		    ("threads,t", po::value<int>(&opt)->default_value(6300), 
+		    ("threads,t", po::value<int>(&thread_count)->default_value(6300), 
 		          "the number of threads")
 		    ;
 
         po::variables_map vm;        
-        po::store(po::parse_command_line(ac, av, desc, config), vm);
+        po::store(po::parse_command_line(ac, av, config), vm);
         po::notify(vm);    
 
         if (vm.count("help")) {
-            std::cout << desc << std::endl << config << std::endl;
+            std::cout << config << std::endl;
             return 0;
         }
         // TODO: add output for other options
     }
-    catch(exception& e) {
-        cerr << "error: " << e.what() << "\n";
+    catch(std::exception& e) {
+        std::cerr << "error: " << e.what() << "\n";
         return 1;
     }
     catch(...) {
-        cerr << "Exception of unknown type!\n";
+        std::cerr << "Exception of unknown type!\n";
     }
 
     return 0;
