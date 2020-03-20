@@ -77,6 +77,7 @@ class Cache::Impl {
            if (evictor_ != nullptr) {
                evictor_->touch_key(key);
             }
+            val_size = size_map_.at(key);
             return map_.at(key).get();
         }
     }
