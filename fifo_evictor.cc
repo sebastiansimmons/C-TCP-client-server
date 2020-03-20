@@ -14,7 +14,9 @@ void Fifo_evictor::touch_key(const key_type& key) {
     my_queue_.push(key);
 }
 const key_type Fifo_evictor::evict() {
-    // WE MIGHT BE ABLE TO DO THIS IN FEWER LINES BUT IT IS NOT CLEAR WE CARE
+    if (my_queue.empty()) {
+        return "";
+    }
     const key_type retval = my_queue_.front();
     my_queue_.pop();
     return retval;
