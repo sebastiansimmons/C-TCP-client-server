@@ -1,63 +1,28 @@
 /*
 tcp_server.cc 
 */
+#include<iostream>
+#include<stdio.h>
+#include<ctype.h>
+#include<stdlib.h>
+#include <unistd.h>
+using namespace std;
 
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-
-#include <iostream>
-#include <string>
-
-
-
-
-int main(int ac, char* av[])
-{
-    try {
-
-        /*
-        po::options_description desc("Allowed options");
-        desc.add_options()
-            ("help", "produce help message")
-        ;
-        */
-
-        // Declare a group of options that will be 
-		// allowed both on command line and in
-		// config file
-		int maxmem;
-		std::string server;
-		int port;
-		int thread_count;
-		po::options_description config("Configuration");
-		config.add_options()
-		    ("maxmem,m", po::value<int>(&maxmem)->default_value(1024), 
-		          "maximum memory allowed in cache")
-		    ("server,s", po::value<std::string>(&server)->default_value("127.0.0.1"), 
-		          "the ip to run the server on")
-		    ("port,p", po::value<int>(&port)->default_value(6300), 
-		          "the port to run the server on")
-		    ("threads,t", po::value<int>(&thread_count)->default_value(6300), 
-		          "the number of threads")
-		    ;
-
-        po::variables_map vm;        
-        po::store(po::parse_command_line(ac, av, config), vm);
-        po::notify(vm);    
-
-        if (vm.count("help")) {
-            std::cout << config << std::endl;
-            return 0;
+int main(int argc, char **argv){
+    int opt,m,p,t;
+    string s;
+    while ((opt = getopt(argc,argv,"m:s:p:t:d")) != EOF)
+        switch(opt)
+        {
+            case 'm': m = 1; cout << "cache size set to "<< optarg <<endl ; break;
+            case 's': s = 1; cout << "running server on "<< optarg <<endl ; break;
+            case 'p': p = 1; cout << "with port "<< optarg <<endl ; break;
+            case 't': t = 1; cout << "on "<< optarg << " threads" <<endl ; break;
+            default: /* '?' */
+                   fprintf(stderr, "Usage: %s [-m bytes] maxmem [-s] server ip\n",
+                           argv[0]);
+                   exit(EXIT_FAILURE);
         }
-        // TODO: add output for other options
-    }
-    catch(std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
-        return 1;
-    }
-    catch(...) {
-        std::cerr << "Exception of unknown type!\n";
-    }
 
     return 0;
 }
