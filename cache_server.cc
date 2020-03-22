@@ -306,8 +306,11 @@ class listener : public std::enable_shared_from_this<listener> {
 
 
 int main(int argc, char **argv){
-    int opt,m,p,t;
-    std::string s;
+    int opt;
+    int m = 1024;
+    int p = 6300;
+    int t = 1;
+    std::string s = "127.0.0.1";
     while ((opt = getopt(argc,argv,"m:s:p:t:d")) != EOF) {
         switch(opt)
         {
