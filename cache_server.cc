@@ -7,6 +7,7 @@ tcp_server.cc
 #include <ctype.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "cache.hh"
 
 // Unless specified otherwise, assume the following code was adapted from
 // https://www.boost.org/doc/libs/1_72_0/libs/beast/example/http/server/async/http_server_async.cpp
@@ -70,8 +71,8 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
         return res;
     };
 
-    // Returns a server error response
-    auto const server_error =
+    // Returns a server error response (we aren't using this yet)
+    /*auto const server_error =
     [&req](beast::string_view what)
     {
         http::response<http::string_body> res{http::status::internal_server_error, req.version()};
@@ -81,40 +82,55 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
         res.body() = "An error occurred: '" + std::string(what) + "'";
         res.prepare_payload();
         return res;
-    };
+    };*/
     // END STUFF I THINK WE CAN IGNORE
 
     switch (req.method()) {
-        case http::verb::get  :
-            // This doesn't compile yet.
-            /*uint32_t s = -1;    //TODO: REPLACE THIS WITH BETTER TYPING
-            const char* retp = test_cache->get(req.target(), s);
-            if (retp == nullptr) {
-                // WE RETURN AN ERROR MESSAGE IF THE KEY IS NOT IN THE CACHE
-            } else {
-                http::file_body::value_type body;
-                // The following bit is fairly directly copied.
-                http::response<http::file_body> res{std::piecewise_construct, std::make_tuple(std::move(body)), std::make_tuple(http::status::ok, req.version())};
-                res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-                //beast::string_view retval = beast::string_view(retp, s);  // NOT SURE THIS IS HOW THE INITIALISER WORKS.
-                //res.set(http::field::content_type, retval);  // See if we can ignore this.
-                res.content_length(s);
-                res.keep_alive(req.keep_alive());
-                return send(std::move(res));
-            }*/
+        case http::verb::get:  //https://stackoverflow.com/questions/5685471/error-jump-to-case-label
+            {
+                uint32_t s = -1;    //TODO: REPLACE THIS WITH BETTER TYPING
+                std::string target = std::string(req.target());
+                target = target.substr(1, target.size());
+                const char* retp = test_cache->get(target, s);
+                if (retp == nullptr) {
+                    return send(not_found(target));
+                } else {
+                    // This is heavily relying on the cache data being valid (i.e. ending with \eof)
+                    std::string rets(retp);
+                    http::response<http::string_body> res{http::status::ok, req.version()};
+                    // A note to the user: if you are relying on this, this is insanely vulernable to a code injection from, e.g., a malicious cache. (Since you supply req.target() yourself, any malicious behavior there is your own darn fault).
+                    res.body() =  "{ key: " + target + ", value: " + rets + "}";    // I think this is desired behavior, but I'm not sure.
+                    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+                    res.content_length(s);
+                    res.keep_alive(req.keep_alive());
+                    res.set(http::field::content_type, "text/html");
+                    res.prepare_payload();
+                    return send(std::move(res));
+                }
+            }
             // IMPLEMENT ME
-        case http::verb::put  :
-            // IMPLEMENT ME
-        case http::verb::delete_  :
-            // IMPLEMENT ME
-        case http::verb::head  :
-            // IMPLEMENT ME
-        case http::verb::post  :
-            // IMPLEMENT ME
-        default  :
-            // We support the GET, PUT, DELETE, HEAD and POST requests. If the request
-            // is of a different type, tell the user to jump in a lake.
-            return send(bad_request("Unknown HTTP-method"));
+        case http::verb::put:
+            {
+                // IMPLEMENT ME
+            }
+        case http::verb::delete_:
+            {
+                // IMPLEMENT ME
+            }
+        case http::verb::head:
+            {
+                // IMPLEMENT ME
+            }
+        case http::verb::post:
+            {
+                // IMPLEMENT ME
+            }
+        default:
+            {
+                // We support the GET, PUT, DELETE, HEAD and POST requests. If the request
+                // is of a different type, tell the user to jump in a lake.
+                return send(bad_request("Unknown HTTP-method"));
+            }
     }
 }
 
@@ -292,28 +308,29 @@ class listener : public std::enable_shared_from_this<listener> {
 int main(int argc, char **argv){
     int opt,m,p,t;
     std::string s;
-    while ((opt = getopt(argc,argv,"m:s:p:t:d")) != EOF)
+    while ((opt = getopt(argc,argv,"m:s:p:t:d")) != EOF) {
         switch(opt)
         {
-            case 'm': m = 1; std::cout << "cache size set to "<< optarg << std::endl ; break;
-            case 's': s = 1; std::cout << "running server on "<< optarg << std::endl ; break;
-            case 'p': p = 1; std::cout << "with port "<< optarg << std::endl ; break;
-            case 't': t = 1; std::cout << "on "<< optarg << " threads" << std::endl ; break;
+            case 'm': m = atoi(optarg); std::cout << "cache size set to "<< optarg << std::endl ; break;
+            case 's': s = std::string(optarg); std::cout << "running server on "<< optarg << std::endl ; break;
+            case 'p': p = atoi(optarg); std::cout << "with port "<< optarg << std::endl ; break;
+            case 't': t = atoi(optarg); std::cout << "on "<< optarg << " threads" << std::endl ; break;
             default: /* '?' */
                    fprintf(stderr, "Usage: %s [-m <bytes>] maxmem [-s <ip>] server ip [-p <int>] port number [-t <int>] number of threads\n",
                            argv[0]);
                    exit(EXIT_FAILURE);
         }
-
-    thread_count = 1;
+    }
+    
     // TODO: CLEAN THIS UP
     auto const address = net::ip::make_address(s);
     auto const portna = static_cast<unsigned short>(p);
     test_cache = new Cache(m);
+    char charr0[] = "the quick brown fox jumps over the lazy dog";
+    test_cache->set("key0", charr0, 44);
     // The io_context is reportedly required for all I/O
     net::io_context ioc{t};
-    listener* my_listener = new listener(ioc, tcp::endpoint{address, portna});
-    my_listener->run();
-
+    std::make_shared<listener>(ioc, tcp::endpoint{address, portna})->run();
+    ioc.run();
     return 0;
 }
