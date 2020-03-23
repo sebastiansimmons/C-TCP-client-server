@@ -1,6 +1,4 @@
 # cscihw4
 
-GET UPDATES FROM BiuSky7777'S TESTS
-
 DO PROJECT
 

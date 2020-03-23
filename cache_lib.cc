@@ -72,6 +72,7 @@ class Cache::Impl {
     Cache::val_type get(key_type key, Cache::size_type& val_size) const {
         // Very short function eh?
         if (map_.count(key) == 0) {
+            val_size = 0;
             return nullptr;
         } else {
            if (evictor_ != nullptr) {
