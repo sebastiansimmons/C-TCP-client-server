@@ -17,6 +17,7 @@ tcp_server.cc
 #include <boost/beast/version.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
+#include <boost/algorithm/string.hpp> 
 #include <boost/config.hpp>
 #include <algorithm>
 #include <cstdlib>
@@ -89,8 +90,13 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
         case http::verb::get:  //https://stackoverflow.com/questions/5685471/error-jump-to-case-label
             {
                 uint32_t s = -1;    //TODO: REPLACE THIS WITH BETTER TYPING
+
+
                 std::string target = std::string(req.target());
-                target = target.substr(1, target.size());
+                target = target.substr(1, target.size());         // Removes leading '/'
+                std::cout << "GET " << target << std::endl;
+
+
                 const char* retp = test_cache->get(target, s);
                 if (retp == nullptr) {
                     return send(not_found(target));
@@ -108,10 +114,29 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
                     return send(std::move(res));
                 }
             }
-            // IMPLEMENT ME
         case http::verb::put:
             {
-                // IMPLEMENT ME
+                std::vector<std::string> target; 
+                boost::split(target, std::string(req.target()), boost::is_any_of("/"));
+                
+                std::cout << "PUT ";
+                for (unsigned i = 0; i < target.size(); i++){
+                    std::cout << target[i] << ' '; 
+                }        
+                std::cout << std::endl;
+                
+                std::string key = target[1];
+                Cache::val_type val = target[2].data();
+                Cache::size_type val_size = target[2].size() + 1;
+
+                test_cache->set(key, val, val_size);
+
+                http::response<http::empty_body> res{http::status::ok, req.version()};
+                res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+                res.set(http::field::content_type, "text/html");
+                res.keep_alive(req.keep_alive());
+                res.prepare_payload();
+                return send(std::move(res));
             }
         case http::verb::delete_:
             {
@@ -324,6 +349,8 @@ int main(int argc, char **argv){
                    exit(EXIT_FAILURE);
         }
     }
+    std::cout << "starting server..." << std::endl;
+            
     
     // TODO: CLEAN THIS UP
     auto const address = net::ip::make_address(s);
