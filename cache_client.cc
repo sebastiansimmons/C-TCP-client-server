@@ -41,9 +41,7 @@ class Cache::Impl {
 
     void set(key_type key, Cache::val_type val, Cache::size_type size) {
     	auto const target = "/"+ key + "/" + val;
-    	// Set up an HTTP PUT request message
-        req_.method(http::verb::put);
-        req_.target(target);
+    	send_request(http::verb::put, target);
         
         std::cout << "Request: " << req_ << std::endl;
 
@@ -58,21 +56,10 @@ class Cache::Impl {
     }
     Cache::val_type get(key_type key, Cache::size_type& val_size) {
 
-    	res_ = http::response<http::string_body>();
-    	
     	auto const target = "/"+ key;
-    	// Set up an HTTP GET request message
-        req_.method(http::verb::get);
-        req_.target(target);
-
-        //std::cout << "Request: " << req_ << std::endl;
-
-        // Send the HTTP request to the remote host
-        http::write(stream_, req_);
-
-        // Receive the HTTP response
-        http::read(stream_, buffer_, res_);
-
+    	
+    	send_request(http::verb::get, target);
+    	
         // copybuffer to string
         std::string body = res_.body();
 
@@ -96,49 +83,8 @@ class Cache::Impl {
 
     }
     Cache::size_type space_used() const {
-    	// The io_context is required for all I/O
-        net::io_context ioc;
-
-        // These objects perform our I/O
-        tcp::resolver resolver(ioc);
-        beast::tcp_stream stream(ioc);
-
-        // Look up the domain name
-        auto const results = resolver.resolve(host_, port_);
-
-        // Make the connection on the IP address we get from a lookup
-        stream.connect(results);
-    	auto const target = "/";
-    	// Set up an HTTP GET request message
-        http::request<http::string_body> req{http::verb::head, target, version_};
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-
-        // Send the HTTP request to the remote host
-        http::write(stream, req);
-
-        // This buffer is used for reading and must be persisted
-        beast::flat_buffer buffer;
-
-        // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
-
-        // Receive the HTTP response
-        http::read(stream, buffer, res);
-
-        // Write the message to standard out
-        std::cout << res << std::endl;
-        std::cout << "Space-Used: " << res["Space-Used"] << std::endl;
-
-        // Gracefully close the socket
-        beast::error_code ec;
-        stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-        auto strv_space_used = res["Space-Used"];
-
-        uint32_t int_space_used;
-        auto result = std::from_chars(strv_space_used.data(), strv_space_used.data() + strv_space_used.size(), int_space_used);
-        Cache::size_type space_used = int_space_used;
+    	
+        Cache::size_type space_used = 32;
     	
         return space_used;
 
@@ -161,11 +107,11 @@ class Cache::Impl {
     http::request<http::empty_body> req_;
     http::response<http::string_body> res_;
 
-  	/*void send_request(auto method, std::string target){
+  	void send_request(http::verb method, std::string target){
   		res_ = http::response<http::string_body>();
     	
     	// Set up an HTTP GET request message
-        req_.method(http::verb::get);
+        req_.method(method);
         req_.target(target);
 
         //std::cout << "Request: " << req_ << std::endl;
@@ -176,7 +122,7 @@ class Cache::Impl {
         // Receive the HTTP response
         http::read(stream_, buffer_, res_);
         return;
-    }*/
+    }
 };
 
 
