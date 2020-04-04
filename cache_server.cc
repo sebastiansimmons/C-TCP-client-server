@@ -8,6 +8,7 @@ tcp_server.cc
 #include <stdlib.h>
 #include <unistd.h>
 #include "cache.hh"
+#include "lru_evictor.hh"
 
 // Unless specified otherwise, assume the following code was adapted from
 // https://www.boost.org/doc/libs/1_72_0/libs/beast/example/http/server/async/http_server_async.cpp
@@ -105,11 +106,12 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
                     std::string rets(retp);
                     http::response<http::string_body> res{http::status::ok, req.version()};
                     // A note to the user: if you are relying on this, this is insanely vulernable to a code injection from, e.g., a malicious cache. (Since you supply req.target() yourself, any malicious behavior there is your own darn fault).
-                    res.body() =  "{ key: " + target + ", value: " + rets + "}";    // I think this is desired behavior, but I'm not sure.
+                    res.body() =  "{\"key\": \"" + target + "\", value: \"" + rets + "\"}";
                     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-                    res.content_length(s);
+                    res.set(http::field::content_type, "application/json");
+                    //res.content_length(s);                                        // THIS SEEMS INCORRECT
                     res.keep_alive(req.keep_alive());
-                    res.set(http::field::content_type, "text/html");
+                    //res.set(http::field::content_type, "application/json");
                     res.prepare_payload();
                     return send(std::move(res));
                 }
@@ -120,7 +122,7 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
                 boost::split(target, std::string(req.target()), boost::is_any_of("/"));
                 
                 std::cout << "PUT ";
-                for (unsigned i = 0; i < target.size(); i++){
+                for (unsigned i = 1; i < target.size(); i++){
                     std::cout << target[i] << ' '; 
                 }        
                 std::cout << std::endl;
@@ -140,20 +142,52 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
             }
         case http::verb::delete_:
             {
-                // IMPLEMENT ME
+                std::string target = std::string(req.target());
+                target = target.substr(1, target.size());         // Removes leading '/'
+                std::cout << "DELETE " << target << std::endl;
+
+                test_cache->del(target);
+
+                http::response<http::empty_body> res{http::status::ok, req.version()};
+                res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+                res.set(http::field::content_type, "text/html");
+                res.keep_alive(req.keep_alive());
+                res.prepare_payload();
+                return send(std::move(res));
             }
         case http::verb::head:
             {
-                // IMPLEMENT ME
+                std::cout << "HEAD" << std::endl;
+                http::response<http::empty_body> res{http::status::ok, req.version()};
+                res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+                res.insert("Space-Used", "Value"); 
+                res.set("Space-Used", std::to_string(test_cache->space_used()));
+                res.keep_alive(req.keep_alive());
+                res.set(http::field::content_type, "application/json");
+                res.prepare_payload();
+                return send(std::move(res));
             }
         case http::verb::post:
             {
-                // IMPLEMENT ME
+                std::string target = std::string(req.target());
+                if(target == "/reset"){
+                    std::cout << "POST /reset " << target << std::endl;
+                    test_cache->reset();
+                    http::response<http::empty_body> res{http::status::ok, req.version()};
+                    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+                    res.insert("Space-Used", "Value"); 
+                    res.set("Space-Used", std::to_string(test_cache->space_used()));
+                    res.keep_alive(req.keep_alive());
+                    res.set(http::field::content_type, "application/json");
+                    res.prepare_payload();
+                    return send(std::move(res));
+                } else{
+                    return send(not_found(target));
+                }
             }
         default:
             {
-                // We support the GET, PUT, DELETE, HEAD and POST requests. If the request
-                // is of a different type, tell the user to jump in a lake.
+                // default for unknown requests
                 return send(bad_request("Unknown HTTP-method"));
             }
     }
@@ -355,9 +389,8 @@ int main(int argc, char **argv){
     // TODO: CLEAN THIS UP
     auto const address = net::ip::make_address(s);
     auto const portna = static_cast<unsigned short>(p);
-    test_cache = new Cache(m);
-    char charr0[] = "the quick brown fox jumps over the lazy dog";
-    test_cache->set("key0", charr0, 44);
+    Lru_evictor* evictor_lru = new Lru_evictor();
+    test_cache = new Cache(m, 0.75, evictor_lru);
     // The io_context is reportedly required for all I/O
     net::io_context ioc{t};
     std::make_shared<listener>(ioc, tcp::endpoint{address, portna})->run();
