@@ -60,29 +60,42 @@ class Cache::Impl {
     	
     	send_request(http::verb::get, target);
     	
-        // copybuffer to string
-        std::string body = res_.body();
+    	if(res_.result() == http::status::ok){
+	        // copybuffer to string
+	        std::string body = res_.body();
 
-		// Create a stringstream of the response so the property tree can interpret it as json
-		std::stringstream ss;
-		ss << body << std::endl << "\0";
+			// Create a stringstream of the response so the property tree can interpret it as json
+			std::stringstream ss;
+			ss << body << std::endl << "\0";
 
-		boost::property_tree::ptree pt;
-		boost::property_tree::read_json(ss, pt);
+			boost::property_tree::ptree pt;
+			boost::property_tree::read_json(ss, pt);
 
-		auto value = pt.get<std::string>("value");
-		
-        char *ret_val = new char[value.length() + 1];     // Potential memory leak. TEST THIS
-        strncpy ( ret_val, value.c_str(),value.length() + 1);
-        val_size = value.length() + 1;
+			auto value = pt.get<std::string>("value");
+			
+	        char *ret_val = new char[value.length() + 1];     // Potential memory leak. TEST THIS
+	        strncpy ( ret_val, value.c_str(),value.length() + 1);
+	        val_size = value.length() + 1;
 
-    	return ret_val;
+	    	return ret_val;
+	    } else {
+	    	return nullptr;
+	    }
     }
     bool del(key_type key) {
-    	return false;
+
+    	auto const target = "/"+ key;
+    	send_request(http::verb::delete_, target);
+
+    	if(res_.result() == http::status::ok){
+    		return true;
+    	} else {
+    		return false;
+    	}
 
     }
     Cache::size_type space_used() const {
+
     	
         Cache::size_type space_used = 32;
     	
@@ -97,8 +110,6 @@ class Cache::Impl {
   	std::string port_;
   	int version_;
   	net::io_context ioc_;
-  	//beast::tcp_stream* stream_;
-
   	tcp::resolver resolver_;
     beast::tcp_stream stream_;
 	tcp::resolver::results_type results_;
@@ -121,6 +132,8 @@ class Cache::Impl {
 
         // Receive the HTTP response
         http::read(stream_, buffer_, res_);
+
+        std::cout << res_ << std::endl;
         return;
     }
 };
