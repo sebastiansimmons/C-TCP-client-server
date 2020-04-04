@@ -1,5 +1,5 @@
 /*
- * Test cache_lib.cc
+ * test_cache_lib.cc
  */
 
 #include "cache.hh"

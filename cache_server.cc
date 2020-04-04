@@ -106,7 +106,7 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
                     std::string rets(retp);
                     http::response<http::string_body> res{http::status::ok, req.version()};
                     // A note to the user: if you are relying on this, this is insanely vulernable to a code injection from, e.g., a malicious cache. (Since you supply req.target() yourself, any malicious behavior there is your own darn fault).
-                    res.body() =  "{\"key\": \"" + target + "\", value: \"" + rets + "\"}";
+                    res.body() =  "{\"key\": \"" + target + "\", \"value\": \"" + rets + "\"}";
                     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
                     res.set(http::field::content_type, "application/json");
                     //res.content_length(s);                                        // THIS SEEMS INCORRECT

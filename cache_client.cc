@@ -8,9 +8,11 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <charconv>
 #include <string.h>
+#include <memory>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -24,101 +26,70 @@ using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
 
 class Cache::Impl {
   public:
-    Impl(std::string host, std::string port): host_(host), port_(port), version_(11) {}
+    Impl(std::string host, std::string port): host_(host), port_(port), version_(11), resolver_(ioc_), stream_(ioc_), results_(resolver_.resolve(host_, port_)) {
+        stream_.connect(results_);
+        req_.version(version_);
+        req_.set(http::field::host, host_);
+        req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+    }
     
-    ~Impl() {}
+    ~Impl() {
+    	// Gracefully close the socket
+        beast::error_code ec;
+        stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
+    }
 
     void set(key_type key, Cache::val_type val, Cache::size_type size) {
-    	// The io_context is required for all I/O
-        net::io_context ioc;
-
-        // These objects perform our I/O
-        tcp::resolver resolver(ioc);
-        beast::tcp_stream stream(ioc);
-
-        // Look up the domain name
-        auto const results = resolver.resolve(host_, port_);
-
-        // Make the connection on the IP address we get from a lookup
-        stream.connect(results);
     	auto const target = "/"+ key + "/" + val;
-    	// Set up an HTTP GET request message
-        http::request<http::empty_body> req{http::verb::put, target, version_};
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
-
-        std::cout << "Request: " << req << std::endl;
+    	// Set up an HTTP PUT request message
+        req_.method(http::verb::put);
+        req_.target(target);
+        
+        std::cout << "Request: " << req_ << std::endl;
 
         // Send the HTTP request to the remote host
-        http::write(stream, req);
-
-        // This buffer is used for reading and must be persisted
-        beast::flat_buffer buffer;
-
-        // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
+        http::write(stream_, req_);
 
         // Receive the HTTP response
-        http::read(stream, buffer, res);
+        http::read(stream_, buffer_, res_);
 
-        // Gracefully close the socket
-        beast::error_code ec;
-        stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-		
     	return;
         
     }
-    Cache::val_type get(key_type key, Cache::size_type& val_size) const {
-    	// The io_context is required for all I/O
-        net::io_context ioc;
+    Cache::val_type get(key_type key, Cache::size_type& val_size) {
 
-        // These objects perform our I/O
-        tcp::resolver resolver(ioc);
-        beast::tcp_stream stream(ioc);
-
-        // Look up the domain name
-        auto const results = resolver.resolve(host_, port_);
-
-        // Make the connection on the IP address we get from a lookup
-        stream.connect(results);
+    	res_ = http::response<http::string_body>();
+    	
     	auto const target = "/"+ key;
     	// Set up an HTTP GET request message
-        http::request<http::string_body> req{http::verb::get, target, version_};
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+        req_.method(http::verb::get);
+        req_.target(target);
+
+        //std::cout << "Request: " << req_ << std::endl;
 
         // Send the HTTP request to the remote host
-        http::write(stream, req);
-
-        // This buffer is used for reading and must be persisted
-        beast::flat_buffer buffer;
-
-        // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
+        http::write(stream_, req_);
 
         // Receive the HTTP response
-        http::read(stream, buffer, res);
-
-        // Write the message to standard out
-        //auto body = std::to_string(res.body().data());
-        
+        http::read(stream_, buffer_, res_);
 
         // copybuffer to string
+        std::string body = res_.body();
 
-        std::string body = beast::buffers_to_string(res.body().data());
-        const char c_body[] = body.data();
+		// Create a stringstream of the response so the property tree can interpret it as json
+		std::stringstream ss;
+		ss << body << std::endl << "\0";
 
+		boost::property_tree::ptree pt;
+		boost::property_tree::read_json(ss, pt);
 
-        std::cout <<"TESTING THIS" << body << std::endl;
+		auto value = pt.get<std::string>("value");
+		
+        char *ret_val = new char[value.length() + 1];     // Potential memory leak. TEST THIS
+        strncpy ( ret_val, value.c_str(),value.length() + 1);
+        val_size = value.length() + 1;
 
-
-        // Gracefully close the socket
-        beast::error_code ec;
-        stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-    	return c_body;
-
+    	return ret_val;
     }
     bool del(key_type key) {
     	return false;
@@ -179,85 +150,33 @@ class Cache::Impl {
   	std::string host_;
   	std::string port_;
   	int version_;
-  	beast::tcp_stream* stream_;
+  	net::io_context ioc_;
+  	//beast::tcp_stream* stream_;
 
-  	void open_tcp_stream_() {
-  		// The io_context is required for all I/O
-        net::io_context ioc;
+  	tcp::resolver resolver_;
+    beast::tcp_stream stream_;
+	tcp::resolver::results_type results_;
 
-        // These objects perform our I/O
-        tcp::resolver resolver(ioc);
-        beast::tcp_stream stream(ioc);
-        stream_ = &stream;
+    beast::flat_buffer buffer_; // (Must persist between reads)
+    http::request<http::empty_body> req_;
+    http::response<http::string_body> res_;
 
-        // Look up the domain name
-        auto const results = resolver.resolve(host_, port_);
+  	/*void send_request(auto method, std::string target){
+  		res_ = http::response<http::string_body>();
+    	
+    	// Set up an HTTP GET request message
+        req_.method(http::verb::get);
+        req_.target(target);
 
-        // Make the connection on the IP address we get from a lookup
-        stream.connect(results);
-  	}
-
-  	void close_tcp_stream_() {
-  		// Gracefully close the socket
-        beast::error_code ec;
-        stream_->socket().shutdown(tcp::socket::shutdown_both, ec);
-  	}
-
-
-
-  	bool test_tcp_stream(){
-  		auto const host = host_;
-        auto const port = port_;
-        auto const target = "/";
-        int version = 11;
-
-        // The io_context is required for all I/O
-        net::io_context ioc;
-
-        // These objects perform our I/O
-        tcp::resolver resolver(ioc);
-        beast::tcp_stream stream(ioc);
-
-        // Look up the domain name
-        auto const results = resolver.resolve(host, port);
-
-        // Make the connection on the IP address we get from a lookup
-        stream.connect(results);
-
-        // Set up an HTTP GET request message
-        http::request<http::string_body> req{http::verb::head, target, version};
-        req.set(http::field::host, host);
-        req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+        //std::cout << "Request: " << req_ << std::endl;
 
         // Send the HTTP request to the remote host
-        http::write(stream, req);
-
-        // This buffer is used for reading and must be persisted
-        beast::flat_buffer buffer;
-
-        // Declare a container to hold the response
-        http::response<http::dynamic_body> res;
+        http::write(stream_, req_);
 
         // Receive the HTTP response
-        http::read(stream, buffer, res);
-
-        // Write the message to standard out
-        std::cout << res << std::endl;
-
-        // Gracefully close the socket
-        beast::error_code ec;
-        stream.socket().shutdown(tcp::socket::shutdown_both, ec);
-
-        // not_connected happens sometimes
-        // so don't bother reporting it.
-        //
-        if(ec && ec != beast::errc::not_connected)
-            throw beast::system_error{ec};
-
-        // If we get here then the connection is closed gracefully
-
-        return true;
-    }
+        http::read(stream_, buffer_, res_);
+        return;
+    }*/
 };
 
 
