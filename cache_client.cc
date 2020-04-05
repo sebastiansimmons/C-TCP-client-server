@@ -26,8 +26,9 @@ using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
 
 class Cache::Impl {
   public:
-    Impl(std::string host, std::string port): host_(host), port_(port), version_(11), resolver_(ioc_), stream_(ioc_), results_(resolver_.resolve(host_, port_)) {
-        stream_.connect(results_);
+    Impl(std::string host, std::string port): host_(host), port_(port), version_(11), resolver_(ioc_), stream_(ioc_) {
+    	auto const results = (resolver_.resolve(host_, port_));
+        stream_.connect(results);
         req_.version(version_);
         req_.set(http::field::host, host_);
         req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
@@ -39,7 +40,7 @@ class Cache::Impl {
         stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
     }
 
-    void set(key_type key, Cache::val_type val, Cache::size_type size) {
+    void set(key_type key, Cache::val_type val, Cache::size_type) {
     	auto const target = "/"+ key + "/" + val;
     	send_request(http::verb::put, target);
 
@@ -117,8 +118,6 @@ class Cache::Impl {
   	net::io_context ioc_;
   	tcp::resolver resolver_;
     mutable beast::tcp_stream stream_;
-	tcp::resolver::results_type results_;
-
     mutable beast::flat_buffer buffer_; // (Must persist between reads)
     mutable http::request<http::empty_body> req_;
     mutable http::response<http::string_body> res_;

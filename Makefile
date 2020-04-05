@@ -9,7 +9,7 @@ all:  cache_server test_cache_lib test_cache_client test_evictors
 cache_server: cache_server.o cache_lib.o lru_evictor.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-test_evictors: test_evictors.o lru_evictor.o
+test_evictors: test_evictors.o lru_evictor.o cache_lib.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 test_cache_lib: test_cache_lib.o cache_lib.o

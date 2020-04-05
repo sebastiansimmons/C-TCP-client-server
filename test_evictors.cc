@@ -1,12 +1,11 @@
 /*
  * Test cache_lib.cc
  */
-
+#define CATCH_CONFIG_MAIN
 #include "cache.hh"
 #include <string.h>
 #include <iostream>
 #include "lru_evictor.hh"
-#define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
 Lru_evictor* test_evictor_lru = new Lru_evictor();  // A fun exercise for the reader: replace this with a Fifo_evictor and watch it fail.
