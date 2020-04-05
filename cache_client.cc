@@ -54,7 +54,7 @@ class Cache::Impl {
     	return;
         
     }
-    Cache::val_type get(key_type key, Cache::size_type& val_size) {
+    Cache::val_type get(key_type key, Cache::size_type& val_size) const {
 
     	auto const target = "/"+ key;
     	
@@ -94,7 +94,7 @@ class Cache::Impl {
     	}
 
     }
-    Cache::size_type space_used() {
+    Cache::size_type space_used() const {
     	auto const target = "/";
     	
     	send_request(http::verb::head, target);
@@ -102,7 +102,7 @@ class Cache::Impl {
         auto strv_space_used = res_["Space-Used"];
 
         Cache::size_type space_used;
-        auto result = std::from_chars(strv_space_used.data(), strv_space_used.data() + strv_space_used.size(), space_used);
+        std::from_chars(strv_space_used.data(), strv_space_used.data() + strv_space_used.size(), space_used);
 
         return space_used;
 
@@ -118,14 +118,14 @@ class Cache::Impl {
   	int version_;
   	net::io_context ioc_;
   	tcp::resolver resolver_;
-    beast::tcp_stream stream_;
+    mutable beast::tcp_stream stream_;
 	tcp::resolver::results_type results_;
 
-    beast::flat_buffer buffer_; // (Must persist between reads)
-    http::request<http::empty_body> req_;
-    http::response<http::string_body> res_;
+    mutable beast::flat_buffer buffer_; // (Must persist between reads)
+    mutable http::request<http::empty_body> req_;
+    mutable http::response<http::string_body> res_;
 
-  	void send_request(http::verb method, std::string target){
+  	void send_request(http::verb method, std::string target) const {
   		res_ = http::response<http::string_body>();
     	
     	// Set up an HTTP GET request message
