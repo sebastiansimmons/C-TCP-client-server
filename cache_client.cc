@@ -72,7 +72,7 @@ class Cache::Impl {
 
 			auto value = pt.get<std::string>("value");
 			
-	        char *ret_val = new char[value.length() + 1];     // Potential memory leak. TEST THIS
+	        char *ret_val = new char[value.length() + 1];
 	        strncpy ( ret_val, value.c_str(),value.length() + 1);
 	        val_size = value.length() + 1;
 
