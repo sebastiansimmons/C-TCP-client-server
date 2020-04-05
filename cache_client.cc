@@ -94,15 +94,22 @@ class Cache::Impl {
     	}
 
     }
-    Cache::size_type space_used() const {
+    Cache::size_type space_used() {
+    	auto const target = "/";
+    	
+    	send_request(http::verb::head, target);
 
-    	
-        Cache::size_type space_used = 32;
-    	
+        auto strv_space_used = res_["Space-Used"];
+
+        Cache::size_type space_used;
+        auto result = std::from_chars(strv_space_used.data(), strv_space_used.data() + strv_space_used.size(), space_used);
+
         return space_used;
 
     }
     void reset() {
+    	auto const target = "/reset";
+    	send_request(http::verb::post, target);
     	return;
     }
   private:

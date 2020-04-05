@@ -173,7 +173,7 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
             {
                 std::string target = std::string(req.target());
                 if(target == "/reset"){
-                    std::cout << "POST /reset " << target << std::endl;
+                    std::cout << "POST " << target << std::endl;
                     test_cache->reset();
                     http::response<http::empty_body> res{http::status::ok, req.version()};
                     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
