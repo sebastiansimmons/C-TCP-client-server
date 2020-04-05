@@ -42,8 +42,6 @@ class Cache::Impl {
     void set(key_type key, Cache::val_type val, Cache::size_type size) {
     	auto const target = "/"+ key + "/" + val;
     	send_request(http::verb::put, target);
-        
-        std::cout << "Request: " << req_ << std::endl;
 
         // Send the HTTP request to the remote host
         http::write(stream_, req_);
@@ -140,7 +138,7 @@ class Cache::Impl {
         // Receive the HTTP response
         http::read(stream_, buffer_, res_);
 
-        std::cout << res_ << std::endl;
+        //std::cout << res_ << std::endl;
         return;
     }
 };
