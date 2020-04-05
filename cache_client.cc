@@ -59,7 +59,7 @@ class Cache::Impl {
     	
     	send_request(http::verb::get, target);
     	
-    	if(res_.result() == http::status::ok){
+    	if(res_.result() == http::status::found){
 	        // copybuffer to string
 	        std::string body = res_.body();
 

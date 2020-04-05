@@ -104,14 +104,11 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
                 } else {
                     // This is heavily relying on the cache data being valid (i.e. ending with \eof)
                     std::string rets(retp);
-                    http::response<http::string_body> res{http::status::ok, req.version()};
-                    // A note to the user: if you are relying on this, this is insanely vulernable to a code injection from, e.g., a malicious cache. (Since you supply req.target() yourself, any malicious behavior there is your own darn fault).
+                    http::response<http::string_body> res{http::status::found, req.version()};
                     res.body() =  "{\"key\": \"" + target + "\", \"value\": \"" + rets + "\"}";
                     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
                     res.set(http::field::content_type, "application/json");
-                    //res.content_length(s);                                        // THIS SEEMS INCORRECT
                     res.keep_alive(req.keep_alive());
-                    //res.set(http::field::content_type, "application/json");
                     res.prepare_payload();
                     return send(std::move(res));
                 }
@@ -133,7 +130,7 @@ void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Se
 
                 test_cache->set(key, val, val_size);
 
-                http::response<http::empty_body> res{http::status::ok, req.version()};
+                http::response<http::empty_body> res{http::status::created, req.version()};
                 res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
                 res.set(http::field::content_type, "text/html");
                 res.keep_alive(req.keep_alive());
