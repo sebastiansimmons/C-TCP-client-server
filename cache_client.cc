@@ -44,12 +44,6 @@ class Cache::Impl {
     	auto const target = "/"+ key + "/" + val;
     	send_request(http::verb::put, target);
 
-        // Send the HTTP request to the remote host
-        http::write(stream_, req_);
-
-        // Receive the HTTP response
-        http::read(stream_, buffer_, res_);
-
     	return;
         
     }
