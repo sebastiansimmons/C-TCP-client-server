@@ -1,4 +1,4 @@
-# cscihw4
+# C++ client/server
 
 Sebastian Simmons
 
